@@ -13,16 +13,16 @@ const User = require('./models/User');
 const app = express();
 const PORT = process.env.PORT || 5000;
 
-// Middleware
+// --- DYNAMIC CORS CONFIGURATION (Senior's Suggestion) ---
 app.use(cors({
-  origin: 'https://portfolio-frontend-vert-pi.vercel.app', 
+  origin: process.env.BASEURL, // Local par localhost:5173 uthayega, Production par live frontend URL
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true
 }));
 
 // Custom Middleware: Vercel Preflight (OPTIONS) aur Redirect CORS bypass karne ke liye
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", "https://portfolio-frontend-vert-pi.vercel.app");
+  res.header("Access-Control-Allow-Origin", process.env.BASEURL);
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
   
@@ -42,7 +42,6 @@ mongoose.connect(process.env.MONGO_URI)
 
 
 // --- EMAIL CONFIGURATION (Nodemailer) ---
-// Ethereal config jo aapne `.env` me set kiya hai
 const transporter = nodemailer.createTransport({
   host: 'smtp.ethereal.email',
   port: 587,
@@ -55,7 +54,7 @@ const transporter = nodemailer.createTransport({
 
 // --- API ROUTES ---
 
-// 1. Contact Us API Route (Step 3 wala)
+// 1. Contact Us API Route
 app.post('/api/contacts', async (req, res) => {
   try {
     const { name, email, message } = req.body;
@@ -90,7 +89,7 @@ app.post('/api/auth/signup', async (req, res) => {
       return res.status(400).json({ success: false, error: 'User already exists with this email' });
     }
 
-    // Password Hashing (Security ke liye)
+    // Password Hashing
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
 
@@ -106,8 +105,11 @@ app.post('/api/auth/signup', async (req, res) => {
     });
     await newUser.save();
 
-    // Verification Link Structure
-    const verificationUrl = `http://localhost:5000/api/auth/verify/${token}`;
+    // --- FIXED: Verification Link Setup ---
+    // Agar live server hai toh request host ka naam use karega, warna localhost:5000 use karega
+    const protocol = req.headers['x-forwarded-proto'] || 'http';
+    const host = req.get('host');
+    const verificationUrl = `${protocol}://${host}/api/auth/verify/${token}`;
 
     // Send Mail via Ethereal SMTP
     const mailOptions = {
@@ -143,19 +145,16 @@ app.get('/api/auth/verify/:token', async (req, res) => {
   try {
     const { token } = req.params;
 
-    // Token match karke user ko dhoondna
     const user = await User.findOne({ verificationToken: token });
 
     if (!user) {
       return res.status(400).send('<h1>Verification failed. Invalid or expired token.</h1>');
     }
 
-    // Status update karna aur token khali karna
     user.isVerified = true;
-    user.verificationToken = undefined; // Token ka kaam khatam, clear kar do
+    user.verificationToken = undefined; 
     await user.save();
 
-    // Success Message Page response
     res.send(`
       <div style="font-family: sans-serif; text-align: center; padding: 50px;">
         <h1 style="color: #14342b;">Email Verified Successfully! 🎉</h1>
@@ -170,40 +169,25 @@ app.get('/api/auth/verify/:token', async (req, res) => {
 });
 
 
-// Base Check Route
-app.get('/', (req, res) => {
-  res.send('Portfolio Backend Engine is running smoothly.');
-});
-
-// Start Server
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
-
-
 // 4. USER LOGIN API
 app.post('/api/auth/login', async (req, res) => {
   try {
     const { email, password } = req.body;
 
-    // Validation
     if (!email || !password) {
       return res.status(400).json({ success: false, error: 'Please enter all fields' });
     }
 
-    // Check user existence
     const user = await User.findOne({ email });
     if (!user) {
       return res.status(400).json({ success: false, error: 'Invalid credentials' });
     }
 
-    // Match Password using bcrypt
     const isMatch = await bcrypt.compare(password, user.password);
     if (!isMatch) {
       return res.status(400).json({ success: false, error: 'Invalid credentials' });
     }
 
-    // Check Verification Status
     if (!user.isVerified) {
       return res.status(400).json({ 
         success: false, 
@@ -211,7 +195,6 @@ app.post('/api/auth/login', async (req, res) => {
       });
     }
 
-    // Success response
     res.status(200).json({
       success: true,
       message: 'Login successful! Welcome back.',
@@ -226,4 +209,14 @@ app.post('/api/auth/login', async (req, res) => {
     console.error('Login Error:', error);
     res.status(500).json({ success: false, error: 'Server Error during login' });
   }
+});
+
+// Base Check Route
+app.get('/', (req, res) => {
+  res.send('Portfolio Backend Engine is running smoothly.');
+});
+
+// Start Server
+app.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
