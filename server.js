@@ -15,10 +15,24 @@ const PORT = process.env.PORT || 5000;
 
 // Middleware
 app.use(cors({
-  origin: 'https://portfolio-frontend-vert-pi.vercel.app', // Jo aapka live frontend URL hai screenshot mein
+  origin: 'https://portfolio-frontend-vert-pi.vercel.app', 
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true
 }));
+
+// Custom Middleware: Vercel Preflight (OPTIONS) aur Redirect CORS bypass karne ke liye
+app.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "https://portfolio-frontend-vert-pi.vercel.app");
+  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
+  
+  // Agar browser preflight OPTIONS request bhejta hai, toh usay direct 200 OK response bhejein
+  if (req.method === 'OPTIONS') {
+    return res.sendStatus(200);
+  }
+  next();
+});
+
 app.use(express.json());
 
 // MongoDB Local Connection
