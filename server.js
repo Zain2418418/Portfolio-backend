@@ -11,57 +11,35 @@ const Contact = require('./models/Contact');
 const User = require('./models/User');
 
 const app = express();
-app.use(
-  cors({
-    origin: [
-      "http://localhost:5173", 
-      "https://portfolio-frontend-vert-pi.vercel.app" // Aapki live frontend website
-    ],
-    credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization", "x-encryption-version"],
-  })
-);
-const PORT = process.env.PORT || 5000;
 
-// --- DYNAMIC CORS CONFIGURATION (Senior's Suggestion) ---
+// --- CLEAN & SOLID CORS CONFIGURATION ---
+const allowedOrigins = [
+  "http://localhost:5173",
+  "https://portfolio-frontend-vert-pi.vercel.app"
+];
+
 app.use(cors({
-  origin: process.env.BASEURL, // Local par localhost:5173 uthayega, Production par live frontend URL
-  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
-  credentials: true
-}));
-// --- MIDDLEWARE SETUP (Place right below app initialization) ---
-
-// 1. Manually handle preflight and static headers before ANY routing or package
-app.use((req, res, next) => {
-  // Local aur Live dono ko handle karne ke liye fallback setup
-  const allowedOrigin = process.env.BASEURL || 'https://portfolio-frontend-vert-pi.vercel.app';
-  
-  res.header("Access-Control-Allow-Origin", allowedOrigin);
-  res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
-  res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-  res.header("Access-Control-Allow-Credentials", "true");
-
-  // CRITICAL: Preflight options request par direct 200 return karein, no redirect, no next()
-  if (req.method === 'OPTIONS') {
-    return res.status(200).end();
-  }
-  next();
-});
-
-// 2. Fallback basic configurations
-app.use(cors({
-  origin: process.env.BASEURL || 'https://portfolio-frontend-vert-pi.vercel.app',
-  credentials: true
+  origin: function (origin, callback) {
+    // Allow requests with no origin (like mobile apps or curl requests)
+    if (!origin) return callback(null, true);
+    if (allowedOrigins.indexOf(origin) === -1) {
+      const msg = 'The CORS policy for this site does not allow access from the specified Origin.';
+      return callback(new Error(msg), false);
+    }
+    return callback(null, true);
+  },
+  credentials: true,
+  methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+  allowedHeaders: ["Origin", "X-Requested-With", "Content-Type", "Accept", "Authorization", "x-encryption-version"]
 }));
 
+// Express Essentials
 app.use(express.json());
 
-// MongoDB Local Connection
+// MongoDB Connection
 mongoose.connect(process.env.MONGO_URI)
-  .then(() => console.log('🍃 Local MongoDB connected successfully...'))
+  .then(() => console.log('🍃 MongoDB connected successfully...'))
   .catch(err => console.error('❌ Database connection error:', err));
-
 
 // --- EMAIL CONFIGURATION (Nodemailer) ---
 const transporter = nodemailer.createTransport({
@@ -73,8 +51,12 @@ const transporter = nodemailer.createTransport({
   },
 });
 
-
 // --- API ROUTES ---
+
+// Base Check Route
+app.get('/', (req, res) => {
+  res.send('Portfolio Backend Engine is running smoothly.');
+});
 
 // 1. Contact Us API Route
 app.post('/api/contacts', async (req, res) => {
@@ -87,17 +69,16 @@ app.post('/api/contacts', async (req, res) => {
     await newContact.save();
     res.status(201).json({ success: true, message: 'Message saved successfully!' });
   } catch (error) {
+    console.error('Contact Error:', error);
     res.status(500).json({ success: false, error: 'Server Error' });
   }
 });
-
 
 // 2. USER SIGNUP API
 app.post('/api/auth/signup', async (req, res) => {
   try {
     const { name, email, password } = req.body;
 
-    // Basic Validation
     if (!name || !email || !password) {
       return res.status(400).json({ success: false, error: 'Please enter all fields' });
     }
@@ -105,20 +86,15 @@ app.post('/api/auth/signup', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Password must be at least 6 characters' });
     }
 
-    // Check if user already exists
     const existingUser = await User.findOne({ email });
     if (existingUser) {
       return res.status(400).json({ success: false, error: 'User already exists with this email' });
     }
 
-    // Password Hashing
     const salt = await bcrypt.genSalt(10);
     const hashedPassword = await bcrypt.hash(password, salt);
-
-    // Create unique verification token
     const token = crypto.randomBytes(32).toString('hex');
 
-    // Save User in DB
     const newUser = new User({
       name,
       email,
@@ -127,13 +103,10 @@ app.post('/api/auth/signup', async (req, res) => {
     });
     await newUser.save();
 
-    // --- FIXED: Verification Link Setup ---
-    // Agar live server hai toh request host ka naam use karega, warna localhost:5000 use karega
     const protocol = req.headers['x-forwarded-proto'] || 'http';
     const host = req.get('host');
     const verificationUrl = `${protocol}://${host}/api/auth/verify/${token}`;
 
-    // Send Mail via Ethereal SMTP
     const mailOptions = {
       from: '"Portfolio Portal" <no-reply@portfolio.com>',
       to: email,
@@ -149,7 +122,6 @@ app.post('/api/auth/signup', async (req, res) => {
     };
 
     await transporter.sendMail(mailOptions);
-
     res.status(201).json({ 
       success: true, 
       message: 'Registration successful! Please check your Ethereal inbox to verify your email.' 
@@ -161,12 +133,10 @@ app.post('/api/auth/signup', async (req, res) => {
   }
 });
 
-
 // 3. EMAIL VERIFICATION API ROUTE
 app.get('/api/auth/verify/:token', async (req, res) => {
   try {
     const { token } = req.params;
-
     const user = await User.findOne({ verificationToken: token });
 
     if (!user) {
@@ -189,7 +159,6 @@ app.get('/api/auth/verify/:token', async (req, res) => {
     res.status(500).send('<h1>Server Error during verification</h1>');
   }
 });
-
 
 // 4. USER LOGIN API
 app.post('/api/auth/login', async (req, res) => {
@@ -233,12 +202,12 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// Base Check Route
-app.get('/', (req, res) => {
-  res.send('Portfolio Backend Engine is running smoothly.');
-});
+// Vercel Serverless Export Architecture
+const PORT = process.env.PORT || 5000;
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`🚀 Server running locally on port ${PORT}`);
+  });
+}
 
-// Start Server
-app.listen(PORT, () => {
-  console.log(`🚀 Server running on port ${PORT}`);
-});
+module.exports = app;
