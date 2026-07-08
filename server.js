@@ -11,6 +11,17 @@ const Contact = require('./models/Contact');
 const User = require('./models/User');
 
 const app = express();
+app.use(
+  cors({
+    origin: [
+      "http://localhost:5173", 
+      "https://portfolio-frontend-vert-pi.vercel.app" // Aapki live frontend website
+    ],
+    credentials: true,
+    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allowedHeaders: ["Content-Type", "Authorization", "x-encryption-version"],
+  })
+);
 const PORT = process.env.PORT || 5000;
 
 // --- DYNAMIC CORS CONFIGURATION (Senior's Suggestion) ---
