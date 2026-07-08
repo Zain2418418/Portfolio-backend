@@ -3,7 +3,7 @@ const mongoose = require('mongoose');
 const cors = require('cors');
 const bcrypt = require('bcryptjs');
 const nodemailer = require('nodemailer');
-const crypto = require('crypto'); // Random token generate karne ke liye built-in module
+const crypto = require('crypto'); // for random token
 require('dotenv').config();
 
 // Models Import
