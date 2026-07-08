@@ -15,7 +15,9 @@ const app = express();
 // --- CLEAN & SOLID CORS CONFIGURATION ---
 const allowedOrigins = [
   "http://localhost:5173",
-  "https://portfolio-frontend-vert-pi.vercel.app"
+  "https://portfolio-frontend-vert-pi.vercel.app",
+  "https://portfolio-frontend-vert-pi.vercel.app/",
+   "portfolio-frontend-vert-pi.vercel.app"
 ];
 
 app.use(cors({
