@@ -19,19 +19,30 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   credentials: true
 }));
+// --- MIDDLEWARE SETUP (Place right below app initialization) ---
 
-// Custom Middleware: Vercel Preflight (OPTIONS) aur Redirect CORS bypass karne ke liye
+// 1. Manually handle preflight and static headers before ANY routing or package
 app.use((req, res, next) => {
-  res.header("Access-Control-Allow-Origin", process.env.BASEURL);
+  // Local aur Live dono ko handle karne ke liye fallback setup
+  const allowedOrigin = process.env.BASEURL || 'https://portfolio-frontend-vert-pi.vercel.app';
+  
+  res.header("Access-Control-Allow-Origin", allowedOrigin);
   res.header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
   res.header("Access-Control-Allow-Headers", "Origin, X-Requested-With, Content-Type, Accept, Authorization");
-  
-  // Agar browser preflight OPTIONS request bhejta hai, toh usay direct 200 OK response bhejein
+  res.header("Access-Control-Allow-Credentials", "true");
+
+  // CRITICAL: Preflight options request par direct 200 return karein, no redirect, no next()
   if (req.method === 'OPTIONS') {
-    return res.sendStatus(200);
+    return res.status(200).end();
   }
   next();
 });
+
+// 2. Fallback basic configurations
+app.use(cors({
+  origin: process.env.BASEURL || 'https://portfolio-frontend-vert-pi.vercel.app',
+  credentials: true
+}));
 
 app.use(express.json());
 
