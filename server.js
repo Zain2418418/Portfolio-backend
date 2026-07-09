@@ -13,11 +13,14 @@ const User = require('./models/User');
 const app = express();
 
 // --- CLEAN & SOLID CORS CONFIGURATION ---
+// --- CLEAN & SOLID CORS CONFIGURATION ---
 const allowedOrigins = [
   "http://localhost:5173",
   "https://portfolio-frontend-vert-pi.vercel.app",
   "https://portfolio-frontend-vert-pi.vercel.app/",
-   "portfolio-frontend-vert-pi.vercel.app"
+  "portfolio-frontend-vert-pi.vercel.app",
+  "https://portfolio-backend-zain-dev.vercel.app", // Added live self reference if required
+  "https://portfolio-frontend-zain-dev.vercel.app" // Just in case if you use custom alias later
 ];
 
 app.use(cors({
